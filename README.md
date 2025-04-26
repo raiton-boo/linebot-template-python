@@ -25,7 +25,7 @@ LINE_CHANNEL_ACCESS_TOKEN=あなたのアクセストークン
 
 3. サーバー起動（FastAPIの場合）
 ```bash
-uvicorn app:app --reload
+uvicorn 起動するファイル名.py:app --reload
 ```
 
 ## 🗂 ファイル・フォルダ構成
