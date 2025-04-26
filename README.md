@@ -44,6 +44,8 @@ uvicorn 起動するファイル名:app --reload
 
 ## 参考リンク
 - [line-bot-sdk-python GitHubリポジトリ](https://github.com/line/line-bot-sdk-python)
+- [LINE Developers](https://developers.line.biz/ja/)
+- [LINE MessageingAPI リファレンス](https://developers.line.biz/ja/reference/messaging-api/)
 
 ## ✨ ライセンス
 MIT License
