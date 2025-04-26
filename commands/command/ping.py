@@ -18,7 +18,7 @@ async def ping(event: MessageEvent, line_bot_api: AsyncMessagingApi):
             reply_token=event.reply_token,
             messages=[
                 TextMessage(text="Pong!"),
-                TextMessage(text=f"実行時間: {execution_time:.3f}秒")
+                TextMessage(text=f"実行時間: {execution_time:.3f}秒") # 本当はPushmessage使いたいけど、使いすぎると制限に引っかかるので、ここはReplymessageで我慢
             ]
         )
     )
