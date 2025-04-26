@@ -1,7 +1,7 @@
 # linebot-template-python
 
 ## 🚀 このリポジトリについて
-このリポジトリはライブラリじゃないです！  
+このリポジトリはライブラリじゃないです！
 「これを参考にして、自分のLINE BOTを作ってみてね」というテンプレです👾
 
 まずはこのリポジトリをクローンして、好きなようにカスタムして使ってください！
@@ -27,6 +27,7 @@ LINE_CHANNEL_ACCESS_TOKEN=あなたのアクセストークン
 ```bash
 uvicorn 起動するファイル名:app --reload
 ```
+デフォルトではローカルホスト（http://localhost:8000）で起動します。ポート8000番を使用しています。
 
 ## 🗂 ファイル・フォルダ構成
 
@@ -40,6 +41,9 @@ uvicorn 起動するファイル名:app --reload
 - Python 3.12
 - FastAPI
 - line-bot-sdk-python
+
+## 参考リンク
+- [line-bot-sdk-python GitHubリポジトリ](https://github.com/line/line-bot-sdk-python)
 
 ## ✨ ライセンス
 MIT License
