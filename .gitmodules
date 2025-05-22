@@ -1,6 +1,3 @@
 [submodule "utils/Lofigy"]
 	path = utils/Lofigy
 	url = https://github.com/raiton-boo/Logify
-[submodule "utils/Logify"]
-	path = utils/Logify
-	url = https://github.com/raiton-boo/Logify
