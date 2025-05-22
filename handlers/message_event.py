@@ -1,46 +1,47 @@
-from linebot.v3.messaging import AsyncMessagingApi, ReplyMessageRequest, TextMessage
-from linebot.v3.webhooks import MessageEvent, TextMessageContent
-from commands.command_manager import CommandManager
-
-from commands.command import (
-    ping,
-    echo
+from linebot.v3.webhooks import (
+    MessageEvent,
+    TextMessageContent,
+    StickerMessageContent,
+    ImageMessageContent,
+    AudioMessageContent,
+    VideoMessageContent,
+    LocationMessageContent,
 )
+from handlers.message import (
+    BaseMessageHandler,
+    StickerMessageHandler,
+    TextMessageHandler,
+    ImageMessageHandler,
+    AudioMessageHandler,
+    VideoMessageHandler,
+    LocationMessageHandler,
+)
+from utils.log.log import LogManager
 
-async def handle_message_event(event: MessageEvent, line_bot_api: AsyncMessagingApi):
-    """メッセージイベントを処理"""
-    if isinstance(event.message, TextMessageContent):
-        text = event.message.text.strip()
 
-        # コマンド名と引数の初期化
-        command_name = None
-        args = ""
+class MessageEventHandler(BaseMessageHandler):
+    def __init__(self, line_bot_api):
+        super().__init__(line_bot_api)
+        self.logger = LogManager()
+        # メッセージタイプごとのハンドラをマッピング
+        self.handler_map = {
+            TextMessageContent: TextMessageHandler(line_bot_api),
+            StickerMessageContent: StickerMessageHandler(line_bot_api),
+            ImageMessageContent: ImageMessageHandler(line_bot_api),
+            AudioMessageContent: AudioMessageHandler(line_bot_api),
+            VideoMessageContent: VideoMessageHandler(line_bot_api),
+            LocationMessageContent: LocationMessageHandler(line_bot_api),
+        }
 
-        # 英数字のコマンドは / または ! で始まる場合のみ反応
-        if text.startswith(("/", "!")):
-            # プレフィックスのみの場合は無視
-            if len(text) == 1:
-                return
-            # プレフィックスを除去し、コマンド名と引数を分離
-            parts = text[1:].split(" ", 1)
-            command_name = parts[0]
-            args = parts[1] if len(parts) > 1 else ""
-        else:
-            # 日本語の場合はそのままコマンド名として扱う
-            command_name = text
-
-        # コマンドの存在チェックと実行
-        if command_name in CommandManager._commands:
-            command = CommandManager._commands[command_name]
-            if "args" in command["func"].__code__.co_varnames:  # 引数を取るか確認
-                await CommandManager.execute_command(command_name, event, line_bot_api, args)
-            else:
-                await CommandManager.execute_command(command_name, event, line_bot_api)
-        elif text.startswith(("/", "!")):
-            # 英数字コマンドで存在しない場合のみエラーメッセージを送信
-            await line_bot_api.reply_message(
-                ReplyMessageRequest(
-                    reply_token=event.reply_token,
-                    messages=[TextMessage(text="そのコマンドはありません")]
-                )
+    async def handle(self, event: MessageEvent):
+        try:
+            for message_type, handler in self.handler_map.items():
+                if isinstance(event.message, message_type):
+                    await handler.handle(event)
+                    return
+            await self.logger.info(
+                f"未対応のメッセージタイプを受信したため無視しました\n"
+                f"{event}"
             )
+        except Exception as e:
+            await self.logger.error(f"MessageEventの処理中にエラーが発生しました:\n{e}")

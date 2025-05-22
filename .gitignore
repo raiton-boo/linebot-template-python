@@ -1,21 +1,7 @@
-# 環境変数ファイル
-.env
-
-# Python関連
+# .gitignore
+.DS_Store
 __pycache__/
 *.pyc
 *.pyo
-
-# 仮想環境
-venv/
-.env/
-
-# IDE関連
-.vscode/
-.idea/
-
-# ログファイル
-*.log
-
-# その他
-.DS_Store
+*.pyd
+.envrc
