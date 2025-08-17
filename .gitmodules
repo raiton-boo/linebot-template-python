@@ -1,0 +1,3 @@
+[submodule "linebot-error-analyzer"]
+	path = linebot-error-analyzer
+	url = https://github.com/raiton-boo/linebot-error-analyzer
