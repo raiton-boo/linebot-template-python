@@ -109,13 +109,13 @@ class MessageEventHandler(BaseEventHandler):
 
             if status_code == 400:
                 # Bad Request - 無効なユーザーIDなど
-                return "❌ 無効なユーザーIDが指定されています。"
+                return "無効なユーザーIDが指定されています。"
             elif status_code == 404:
                 # Not Found - ユーザーがbotをブロックしているか友だち追加していない
                 return "友だち追加してね！"
             else:
                 # その他のエラー（想定外）
-                return "❌ プロフィール情報の取得中にエラーが発生しました。"
+                return "プロフィール情報の取得中にエラーが発生しました。"
 
         except Exception:
             # analyzer失敗時のフォールバック（高速）
