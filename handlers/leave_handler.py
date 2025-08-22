@@ -1,6 +1,6 @@
 """
 グループ退出イベントハンドラ
-ボットがグループから退出させられた際の処理を担当
+ボットがグループから退出させられた際の処理
 """
 
 from linebot.v3.webhooks import LeaveEvent
@@ -10,10 +10,7 @@ from .base_handler import BaseEventHandler
 
 class LeaveEventHandler(BaseEventHandler):
     """
-    グループ退出イベントを処理するハンドラ
-
-    ボットがグループから退出させられた際の処理を行います。
-    退出時は返信ができないため、ログ出力のみ行います。
+    LeaveEventを処理するハンドラ
     """
 
     async def handle(self, event: LeaveEvent) -> None:

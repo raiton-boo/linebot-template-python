@@ -1,6 +1,6 @@
 """
 フォローイベントハンドラ
-ユーザーがボットをフォローした際の処理を担当
+ユーザーがボットをフォローした際の処理
 """
 
 from linebot.v3.messaging import TextMessage, ReplyMessageRequest
@@ -13,9 +13,7 @@ from .base_handler import BaseEventHandler
 
 class FollowEventHandler(BaseEventHandler):
     """
-    フォローイベントを処理するハンドラ
-
-    ユーザーがボットをフォローした際に歓迎メッセージを送信します。
+    FollowEventを処理するハンドラ
     """
 
     async def handle(self, event: FollowEvent) -> None:
@@ -26,7 +24,7 @@ class FollowEventHandler(BaseEventHandler):
             event (FollowEvent): フォローイベント
         """
         try:
-            # 歓迎メッセージを送信（ログ削減）
+            # 歓迎メッセージを送信
             welcome_message = (
                 "フォローありがとうございます！\n何かメッセージを送ってみてください。"
             )
@@ -37,5 +35,5 @@ class FollowEventHandler(BaseEventHandler):
             )
 
         except Exception as e:
-            # 独自エラー処理（スタックトレースを含めて記録し、専用ハンドラへ委譲）
+            # 独自エラー処理
             self.logger.exception(f"フォロー処理エラー: {type(e).__name__}: {e}")

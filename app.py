@@ -43,7 +43,7 @@ logger = logging.getLogger(__name__)
 channel_secret: Optional[str] = os.getenv("LINE_CHANNEL_SECRET")
 channel_access_token: Optional[str] = os.getenv("LINE_CHANNEL_ACCESS_TOKEN")
 
-# 必須環境変数のチェック（早期終了）
+# 必須環境変数のチェック
 if not channel_secret:
     logger.error("環境変数 LINE_CHANNEL_SECRET が設定されていません")
     sys.exit(1)
@@ -60,8 +60,8 @@ app = FastAPI(
     title="LINE Bot Template",
     description="非同期処理対応のLINE Botテンプレート",
     version="1.0.0",
-    docs_url=None,  # 本番環境でのSwagger UI無効化（セキュリティ向上）
-    redoc_url=None,  # ReDoc UI無効化
+    docs_url=None,
+    redoc_url=None,
 )
 
 async_api_client = AsyncApiClient(configuration)
@@ -75,7 +75,7 @@ def create_event_handler_map(
 ) -> Dict[Type[Any], BaseEventHandler]:
     """
     イベントタイプとハンドラのマッピングを作成
-    高速なイベントルーティングを実現します
+    高速なイベントルーティングが可能
 
     Args:
         api (AsyncMessagingApi): LINE Bot API クライアント
@@ -154,14 +154,14 @@ async def handle_callback(request: Request):
     try:
         events = parser.parse(body, signature)
     except InvalidSignatureError as sig_error:
-        # analyzerで署名エラーの詳細診断（セキュリティ向上）
+        # analyzerで署名エラーの詳細診断
         try:
             analyzer = AsyncLineErrorAnalyzer()
             analysis_result = await analyzer.analyze(sig_error)
-            # 簡潔で有用な情報のみログ出力
+
             logger.warning(f"署名検証失敗: {analysis_result.recommended_action}")
         except Exception:
-            # analyzerが失敗してもフォールバック
+            # analyzerが失敗したとき用
             logger.warning("署名検証失敗: チャネルシークレットを確認してください")
 
         raise HTTPException(
@@ -184,7 +184,7 @@ async def handle_callback(request: Request):
             try:
                 await handler.handle(event)
             except Exception as e:
-                # 重要なエラーのみanalyzerで詳細解析（レスポンス速度を保つ）
+                # 重要なエラーのみanalyzerで詳細解析
                 error_type_name = type(e).__name__
 
                 # 特定の重要なエラータイプのみ詳細解析
@@ -204,23 +204,23 @@ async def handle_callback(request: Request):
                             f"{event_type.__name__}処理失敗: {error_type_name}"
                         )
                 else:
-                    # 通常エラーは最小限のログ
+                    # 通常エラーログ
                     logger.error(f"{event_type.__name__}処理失敗: {error_type_name}")
         else:
-            # 未知のイベントタイプ（開発時に有用）
+            # 未作成のイベントタイプ
             logger.debug(f"未対応イベント: {event_type.__name__}")
 
-    # 並行処理でイベントを処理（高速化）
+    # 並行処理でイベントを処理
     if events:
         event_count = len(events)
-        # パフォーマンス監視用の軽量ログ
+        # パフォーマンス監視用のログ
         if event_count > 5:  # 大量イベント時のみログ
             logger.info(f"大量イベント処理開始: {event_count}件")
 
         tasks = [process_single_event(event) for event in events]
         results = await asyncio.gather(*tasks, return_exceptions=True)
 
-        # エラー統計（邪魔にならない程度）
+        # エラー統計
         error_count = sum(1 for result in results if isinstance(result, Exception))
         if error_count > 0:
             logger.info(

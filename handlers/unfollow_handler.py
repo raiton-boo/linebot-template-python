@@ -1,6 +1,6 @@
 """
 アンフォローイベントハンドラ
-ユーザーがボットのフォローを解除した際の処理を担当
+ユーザーがボットをブロックした際の処理
 """
 
 from linebot.v3.webhooks import UnfollowEvent
@@ -10,10 +10,7 @@ from .base_handler import BaseEventHandler
 
 class UnfollowEventHandler(BaseEventHandler):
     """
-    アンフォローイベントを処理するハンドラ
-
-    ユーザーがボットのフォローを解除した際の処理を行います。
-    アンフォロー時は返信ができないため、ログ出力のみ行います。
+    UnfollowEventを処理するハンドラ
     """
 
     async def handle(self, event: UnfollowEvent) -> None:

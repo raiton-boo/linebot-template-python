@@ -1,6 +1,6 @@
 """
 メンバー参加イベントハンドラ
-グループに新しいメンバーが参加した際の処理を担当
+グループに新しいメンバーが参加した際の処理
 """
 
 from linebot.v3.messaging import TextMessage, ReplyMessageRequest
@@ -11,9 +11,7 @@ from .base_handler import BaseEventHandler
 
 class MemberJoinedEventHandler(BaseEventHandler):
     """
-    メンバー参加イベントを処理するハンドラ
-
-    グループに新しいメンバーが参加した際に歓迎メッセージを送信します。
+    MemberJoinedEventを処理するハンドラ
     """
 
     async def handle(self, event: MemberJoinedEvent) -> None:
@@ -33,7 +31,7 @@ class MemberJoinedEventHandler(BaseEventHandler):
                 f"グループに {member_count} 人のメンバーが参加しました: {group_id}"
             )
 
-            # 歓迎メッセージを作成
+            # 歓迎メッセージ
             if member_count == 1:
                 welcome_message = "新しいメンバーが参加しました！\nようこそ！"
             else:

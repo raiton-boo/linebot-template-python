@@ -1,6 +1,6 @@
 """
 グループ参加イベントハンドラ
-ボットがグループに招待された際の処理を担当
+ボットがグループに招待された際の処理
 """
 
 from linebot.v3.messaging import TextMessage, ReplyMessageRequest
@@ -11,9 +11,7 @@ from .base_handler import BaseEventHandler
 
 class JoinEventHandler(BaseEventHandler):
     """
-    グループ参加イベントを処理するハンドラ
-
-    ボットがグループに招待された際に挨拶メッセージを送信します。
+    JoinEventを処理するハンドラ
     """
 
     async def handle(self, event: JoinEvent) -> None:
