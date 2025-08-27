@@ -1,92 +1,178 @@
-"""
-メッセージイベントハンドラ
-メッセージを受信した際の処理
-"""
+from typing import Any, Dict, Optional
 
-from typing import Any
-
-from linebot.v3.messaging import TextMessage, ReplyMessageRequest
-from linebot.v3.webhooks import MessageEvent, MessageContent
-from linebot_error_analyzer import AsyncLineErrorAnalyzer, ApiPattern, ErrorCategory
+from linebot.v3.webhooks import MessageEvent
+from linebot.v3.messaging import AsyncMessagingApi, TextMessage, ReplyMessageRequest
 
 from .base_handler import BaseEventHandler
-from commands import GetProfileCommand
 
 
 class MessageEventHandler(BaseEventHandler):
     """
-    MessageEventを処理するハンドラ
-    """
+    MessageEvent handler
 
-    def __init__(self, *args, **kwargs):
-        """
-        初期化
-        """
-        super().__init__(*args, **kwargs)
-        self.get_profile_command = GetProfileCommand(self.line_bot_api, self.logger)
+    ユーザーからテキスト、画像、音声などのメッセージを受信した際に発生するイベントを処理します。
+    """
 
     async def handle(self, event: MessageEvent) -> None:
         """
-        メッセージイベントの処理
+        Process message event
 
         Args:
-            event (MessageEvent): メッセージイベント
+            event (MessageEvent): Message event
+
+        Raises:
+            Exception: Error occurred during event processing
         """
         try:
-            # テキストメッセージ以外は無視
-            if not hasattr(event.message, "text") or not event.message.text:
-                return
-
-            message_text = event.message.text.strip().lower()
-
-            # プロフィール情報取得コマンド
-            if message_text == "profile":
-                await self.get_profile_command.execute(event)
-                return
-
-            # 通常の鸚鵡返し処理
-            reply_text = event.message.text
-            messages = [TextMessage(text=reply_text)]
-
-            await self.line_bot_api.reply_message(
-                ReplyMessageRequest(reply_token=event.reply_token, messages=messages)
+            # メッセージタイプを取得
+            message = event.message
+            message_type = message.type if hasattr(message, "type") else "unknown"
+            user_id = (
+                event.source.user_id if hasattr(event.source, "user_id") else "unknown"
             )
 
-        except Exception as e:
-            # エラー処理
-            self.logger.error(f"メッセージ処理失敗: {type(e).__name__}")
-            await self._handle_message_error(e, event)
+            self.logger.info(f"Message received: {message_type} from {user_id}")
 
-    async def _handle_message_error(
-        self, error: Exception, event: MessageEvent
-    ) -> None:
+            # メッセージタイプに応じた処理
+            response_message = await self._process_message(message, event)
+
+            if response_message:
+                messages = [TextMessage(text=response_message)]
+                reply_request = ReplyMessageRequest(
+                    reply_token=event.reply_token, messages=messages
+                )
+                await self.line_bot_api.reply_message(reply_request)
+
+        except Exception as error:
+            await self._safe_error_handle(error, event)
+            raise
+
+    async def _process_message(
+        self, message: Any, event: MessageEvent
+    ) -> Optional[str]:
         """
-        メッセージ処理の専用エラーハンドリング
+        メッセージタイプに応じた処理を実行
 
         Args:
-            error (Exception): 発生したエラー
+            message (Any): メッセージオブジェクト
             event (MessageEvent): メッセージイベント
+
+        Returns:
+            Optional[str]: 返信メッセージ（Noneの場合は返信なし）
         """
-        user_id = getattr(event.source, "user_id", "unknown")
+        message_type = getattr(message, "type", "unknown")
 
+        # テキストメッセージの場合
+        if message_type == "text":
+            return await self._handle_text_message(message)
+
+        # 画像メッセージの場合
+        elif message_type == "image":
+            return "画像を受信しました！素敵な写真ですね。"
+
+        # 音声メッセージの場合
+        elif message_type == "audio":
+            return "音声メッセージを受信しました！"
+
+        # 動画メッセージの場合
+        elif message_type == "video":
+            return "動画を受信しました！"
+
+        # ファイルメッセージの場合
+        elif message_type == "file":
+            file_name = getattr(message, "fileName", "ファイル")
+            return f"ファイル「{file_name}」を受信しました！"
+
+        # スタンプメッセージの場合
+        elif message_type == "sticker":
+            return "可愛いスタンプですね！😊"
+
+        # 位置情報メッセージの場合
+        elif message_type == "location":
+            title = getattr(message, "title", "場所")
+            address = getattr(message, "address", "不明")
+            return f"位置情報を受信しました！\n場所: {title}\n住所: {address}"
+
+        # その他のメッセージタイプ
+        else:
+            return f"{message_type}メッセージを受信しました！"
+
+    async def _handle_text_message(self, message: Any) -> str:
+        """
+        テキストメッセージの処理
+
+        Args:
+            message (Any): テキストメッセージオブジェクト
+
+        Returns:
+            str: 返信メッセージ
+        """
+        text = getattr(message, "text", "").lower().strip()
+
+        # 簡単なパターンマッチング
+        if not text:
+            return "メッセージが受信できませんでした。"
+
+        # 挨拶パターン
+        if any(
+            greeting in text
+            for greeting in ["こんにちは", "おはよう", "こんばんは", "hello", "hi"]
+        ):
+            return "こんにちは！お元気ですか？"
+
+        # 感謝パターン
+        elif any(
+            thanks in text
+            for thanks in ["ありがとう", "サンキュー", "thanks", "thank you"]
+        ):
+            return (
+                "どういたしまして！何か他にお手伝いできることがあれば教えてくださいね。"
+            )
+
+        # ヘルプパターン
+        elif any(
+            help_word in text for help_word in ["ヘルプ", "help", "使い方", "機能"]
+        ):
+            return (
+                "【Bot機能一覧】\n"
+                "• テキスト、画像、音声などのメッセージに対応\n"
+                "• スタンプや位置情報も受信可能\n"
+                "• 簡単な会話機能\n"
+                "何かメッセージを送ってみてください！"
+            )
+
+        # 質問パターン
+        elif "?" in text or "？" in text:
+            return "質問ですね！申し訳ありませんが、まだ詳しい質問にはお答えできません。今後改良していきます！"
+
+        # エコー（オウム返し）
+        else:
+            return None
+
+    async def _error_handle(
+        self,
+        error: Exception,
+        event: MessageEvent,
+        context: Optional[Dict[str, Any]] = None,
+    ) -> None:
+        """
+        Handle error
+
+        Args:
+            error (Exception): Occurred error
+            event (MessageEvent): Event where error occurred
+            context (Optional[Dict[str, Any]]): Context information when error occurred
+        """
         try:
-            # エラー解析
-            analyzer = AsyncLineErrorAnalyzer()
-            analysis_result = await analyzer.analyze(error, ApiPattern.MESSAGE_REPLY)
-
-            # 重要エラーのみ詳細ログ
-            if analysis_result.category == ErrorCategory.RATE_LIMIT:
-                retry_time = getattr(analysis_result, "retry_after", None) or 60
-                self.logger.warning(f"レート制限[{user_id}]: {retry_time}秒待機")
-            elif analysis_result.category == ErrorCategory.SERVER_ERROR:
-                self.logger.error(f"サーバーエラー[{user_id}]")
-            elif analysis_result.category == ErrorCategory.INVALID_REPLY_TOKEN:
-                self.logger.warning(f"無効ReplyToken[{user_id}]")
-            else:
-                self.logger.error(
-                    f"メッセージエラー[{user_id}]: {analysis_result.category}"
-                )
-
+            message_type = (
+                getattr(event.message, "type", "unknown")
+                if hasattr(event, "message")
+                else "unknown"
+            )
+            self.logger.error(
+                f"Message handler error ({message_type}): {type(error).__name__} - {str(error)}",
+                exc_info=True,
+            )
         except Exception:
-            # analyzer失敗時のフォールバック
-            self.logger.error(f"メッセージ処理失敗[{user_id}]: {type(error).__name__}")
+            # 絶対に例外を投げてはいけません
+            pass

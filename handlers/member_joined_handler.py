@@ -1,51 +1,75 @@
-"""
-メンバー参加イベントハンドラ
-グループに新しいメンバーが参加した際の処理
-"""
+from typing import Any, Dict, Optional
 
-from linebot.v3.messaging import TextMessage, ReplyMessageRequest
 from linebot.v3.webhooks import MemberJoinedEvent
+from linebot.v3.messaging import AsyncMessagingApi, TextMessage, ReplyMessageRequest
 
 from .base_handler import BaseEventHandler
 
 
 class MemberJoinedEventHandler(BaseEventHandler):
     """
-    MemberJoinedEventを処理するハンドラ
+    MemberJoinedEvent handler
+
+    グループやルームに新しいメンバーが参加した際に発生するイベントを処理します。
     """
 
     async def handle(self, event: MemberJoinedEvent) -> None:
         """
-        メンバー参加イベントを処理
+        Process member joined event
 
         Args:
-            event (MemberJoinedEvent): メンバー参加イベント
+            event (MemberJoinedEvent): Member joined event
+
+        Raises:
+            Exception: Error occurred during event processing
         """
         try:
-            # 参加したユーザー数を取得
-            joined_members = event.joined.members
-            member_count = len(joined_members)
-
-            group_id = getattr(event.source, "group_id", "unknown")
-            self.logger.info(
-                f"グループに {member_count} 人のメンバーが参加しました: {group_id}"
+            # 参加したメンバーの情報を取得
+            joined_members = (
+                event.joined.members if event.joined and event.joined.members else []
             )
 
-            # 歓迎メッセージ
-            if member_count == 1:
-                welcome_message = "新しいメンバーが参加しました！\nようこそ！"
-            else:
-                welcome_message = (
-                    f"新しく {member_count} 人のメンバーが参加しました！\nようこそ！"
+            if joined_members:
+                member_count = len(joined_members)
+                message_text = f"{member_count}名のメンバーが参加しました！\nようこそ！"
+
+                self.logger.info(
+                    f"Member joined: {member_count} to {event.source.type}"
                 )
+            else:
+                message_text = "新しいメンバーが参加しました！\nようこそ！"
+                self.logger.info(f"Member joined to {event.source.type}")
 
-            messages = [TextMessage(text=welcome_message)]
-
-            await self.line_bot_api.reply_message(
-                ReplyMessageRequest(reply_token=event.reply_token, messages=messages)
+            # 歓迎メッセージを送信
+            messages = [TextMessage(text=message_text)]
+            reply_request = ReplyMessageRequest(
+                reply_token=event.reply_token, messages=messages
             )
+            await self.line_bot_api.reply_message(reply_request)
 
-            self.logger.info(f"メンバー参加歓迎メッセージを送信しました: {group_id}")
+        except Exception as error:
+            await self._safe_error_handle(error, event)
+            raise
 
-        except Exception as e:
-            await self.handle_error(e, event)
+    async def _error_handle(
+        self,
+        error: Exception,
+        event: MemberJoinedEvent,
+        context: Optional[Dict[str, Any]] = None,
+    ) -> None:
+        """
+        Handle error
+
+        Args:
+            error (Exception): Occurred error
+            event (MemberJoinedEvent): Event where error occurred
+            context (Optional[Dict[str, Any]]): Context information when error occurred
+        """
+        try:
+            self.logger.error(
+                f"Member joined handler error: {type(error).__name__} - {str(error)}",
+                exc_info=True,
+            )
+        except Exception:
+            # 絶対に例外を投げてはいけません
+            pass
