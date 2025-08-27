@@ -25,8 +25,9 @@ from linebot.v3.webhooks import (
     MemberLeftEvent,
     PostbackEvent,
     BeaconEvent,
-    ModuleEvent,
     VideoPlayCompleteEvent,
+    ThingsEvent,
+    AccountLinkEvent,
 )
 
 from linebot_error_analyzer import AsyncLineErrorAnalyzer
@@ -39,11 +40,12 @@ from handlers import (
     MemberJoinedEventHandler,
     MemberLeftEventHandler,
     MessageEventHandler,
-    ModuleEventHandler,
     PostbackEventHandler,
     UnfollowEventHandler,
     UnsendEventHandler,
     VideoPlayCompleteEventHandler,
+    ThingsEventHandler,
+    AccountLinkEventHandler,
 )
 
 # ==== ログ設定 ====
@@ -124,8 +126,9 @@ def create_event_handler_map(
         MemberLeftEvent: MemberLeftEventHandler(api),
         PostbackEvent: PostbackEventHandler(api),
         BeaconEvent: BeaconEventHandler(api),
-        ModuleEvent: ModuleEventHandler(api),
         VideoPlayCompleteEvent: VideoPlayCompleteEventHandler(api),
+        ThingsEvent: ThingsEventHandler(api),
+        AccountLinkEvent: AccountLinkEventHandler(api),
     }
 
     logger.info(f"ハンドラマッピング作成完了: {len(active_handlers)}種類のイベント対応")
@@ -196,6 +199,9 @@ async def webhook_callback(request: Request):
         )
     # バックグラウンド処理開始（レスポンス速度最優先）
     if events:
+        # デバッグ: 受信イベントタイプをログ出力
+        event_types = [type(event).__name__ for event in events]
+        logger.info(f"受信イベント: {event_types}")
         asyncio.create_task(_process_events_background(events))
 
     return {"message": "ok"}
@@ -247,7 +253,9 @@ async def _handle_single_event(event: Any) -> None:
     handler = event_handler_map.get(event_type)  # 辞書検索
 
     if not handler:
-        logger.info(f"未対応イベントタイプ: {event_type.__name__}")
+        logger.warning(
+            f"未対応イベントタイプ: {event_type.__name__} - 利用可能なハンドラ: {list(event_handler_map.keys())}"
+        )
         return
 
     try:

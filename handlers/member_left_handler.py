@@ -41,12 +41,9 @@ class MemberLeftEventHandler(BaseEventHandler):
                 message_text = "メンバーが退出しました。"
                 self.logger.info(f"Member left from {event.source.type}")
 
-            # 退出通知メッセージを送信
-            messages = [TextMessage(text=message_text)]
-            reply_request = ReplyMessageRequest(
-                reply_token=event.reply_token, messages=messages
-            )
-            await self.line_bot_api.reply_message(reply_request)
+            # MemberLeftEventには reply_token がないため、ログ記録のみ
+            # 必要に応じて内部処理（統計更新、データベース処理など）を実装
+            self.logger.info(f"Member left event processed: {message_text}")
 
         except Exception as error:
             await self._safe_error_handle(error, event)

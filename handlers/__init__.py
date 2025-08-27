@@ -16,25 +16,34 @@ from .leave_handler import LeaveEventHandler
 from .member_joined_handler import MemberJoinedEventHandler
 from .member_left_handler import MemberLeftEventHandler
 
-# その他
+# Special Feature Handlers（特殊機能）
 from .beacon_handler import BeaconEventHandler
-from .module_handler import ModuleEventHandler
 from .video_play_complete_handler import VideoPlayCompleteEventHandler
+
+# Account & Service Integration Handlers（アカウント・サービス連携）
+from .account_link_handler import AccountLinkEventHandler
+from .things_handler import ThingsEventHandler
 
 
 # Exports
 __all__ = [
     "BaseEventHandler",
-    "BeaconEventHandler",
+    # Core Message Handlers
+    "MessageEventHandler",
+    "UnsendEventHandler",
+    # User Interaction Handlers
     "FollowEventHandler",
+    "UnfollowEventHandler",
+    "PostbackEventHandler",
+    # Group/Room Management Handlers
     "JoinEventHandler",
     "LeaveEventHandler",
     "MemberJoinedEventHandler",
     "MemberLeftEventHandler",
-    "MessageEventHandler",
-    "ModuleEventHandler",
-    "PostbackEventHandler",
-    "UnfollowEventHandler",
-    "UnsendEventHandler",
+    # Special Feature Handlers
+    "BeaconEventHandler",
     "VideoPlayCompleteEventHandler",
+    # Account & Service Integration Handlers
+    "AccountLinkEventHandler",
+    "ThingsEventHandler",
 ]
