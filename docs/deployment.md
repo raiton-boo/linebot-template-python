@@ -1,149 +1,173 @@
-# ローカル開発と本番環境デプロイメント
+# デプロイメントガイド
 
-ローカル開発環境のセットアップと各種プラットフォームでの本番デプロイメント方法を説明します。
+このドキュメントでは、ローカル開発環境から本番環境へのデプロイメント方法を説明します。
 
-## 🖥 ローカル開発環境（ngrok 使用）
+## 🖥 開発環境（ngrok使用）
 
-### 前提条件
+開発環境のセットアップについては [📝 セットアップガイド](./setup.md) を参照してください。
 
-- Python 3.9+ がインストール済み
-- ngrok アカウント（無料で利用可能）
-
-### 1. ngrok のセットアップ
-
-#### ngrok のインストール
-
-```bash
-# macOS (Homebrew)
-brew install ngrok
-
-# Windows (Chocolatey)
-choco install ngrok
-
-# Linux
-curl -s https://ngrok-agent.s3.amazonaws.com/ngrok.asc | sudo tee /etc/apt/trusted.gpg.d/ngrok.asc >/dev/null
-echo "deb https://ngrok-agent.s3.amazonaws.com buster main" | sudo tee /etc/apt/sources.list.d/ngrok.list
-sudo apt update && sudo apt install ngrok
-```
-
-#### 認証トークンの設定
-
-1. [ngrok ダッシュボード](https://dashboard.ngrok.com/get-started/your-authtoken) で auth token を取得
-2. トークンを設定：
-
-```bash
-ngrok config add-authtoken YOUR_AUTH_TOKEN
-```
-
-### 2. アプリケーションの起動
-
-#### ターミナル 1: LINE Bot アプリケーション起動
-
-```bash
-cd /path/to/your/linebot-template-python
-python -m uvicorn app:app --reload --host 0.0.0.0 --port 8000
-```
-
-#### ターミナル 2: ngrok でトンネル作成
-
-```bash
-ngrok http 8000
-```
-
-ngrok が起動すると以下のような出力が表示されます：
-
-```
-Session Status                online
-Account                      your-email@example.com
-Version                      3.x.x
-Region                       Japan (jp)
-Latency                      -
-Web Interface                http://127.0.0.1:4040
-Forwarding                   https://abc123def456.ngrok-free.app -> http://localhost:8000
-```
-
-### 3. Webhook URL の設定
-
-1. LINE Developers コンソールを開く
-2. Webhook URL に ngrok の HTTPS URL + `/callback` を設定
-   - 例：`https://abc123def456.ngrok-free.app/callback`
-3. 「検証」ボタンで接続確認
-4. 「Webhook の利用」をオンにする
-
-### 4. 動作確認
-
-- LINE Bot を友だち追加
-- メッセージを送信して鸚鵡返しを確認
-- `profile` コマンドでプロフィール取得を確認
-
-### ngrok 使用時の注意点
-
-- 無料版では 8 時間で URL が変更されるため、定期的に Webhook URL の更新が必要
-- セッションが切れた場合は ngrok を再起動して新しい URL を設定
-- 有料版（Pro 以上）では固定ドメインが利用可能
-
-## 🏗 本番環境デプロイメントオプション
-
-本番環境では各自でサーバーを用意してデプロイしてください。以下は推奨プラットフォームです：
+## 🌐 本番環境デプロイメントオプション
 
 ### 推奨プラットフォーム
 
-- **Railway**: モダンなプラットフォーム、Git 連携、シンプル
-- **Google Cloud Run**: サーバーレス、スケーラブル、従量課金
-- **AWS Lambda**: サーバーレス、高可用性
-- **VPS**: 自由度が高い、コスト効率（Linode、DigitalOcean 等）
+| プラットフォーム | 難易度 | コスト | 特徴 |
+|------------------|--------|--------|------|
+| **Railway** | 低 | 低 | Git連携、簡単デプロイ |
+| **Heroku** | 低 | 中 | 老舗PaaS、豊富なドキュメント |
+| **Google Cloud Run** | 中 | 低 | サーバーレス、スケーラブル |
+| **AWS Lambda** | 高 | 低 | サーバーレス、高可用性 |
+| **VPS** | 高 | 低 | 自由度高、コスト効率 |
 
-## 🚂 Railway デプロイメント
+## 🚂 Railway デプロイメント（推奨）
 
-### 1. Railway プロジェクトの作成
+### メリット
+- Git プッシュだけで自動デプロイ
+- 無料枠が充実
+- 環境変数管理が簡単
+- ログ確認が容易
+
+### デプロイ手順
+
+#### 1. Railway プロジェクトの作成
 
 1. [Railway](https://railway.app) にサインアップ
-2. 「New Project」→「Deploy from GitHub repo」を選択
-3. リポジトリを選択
+2. GitHub アカウントで連携
+3. 「New Project」をクリック
+4. 「Deploy from GitHub repo」を選択
+5. LINE Bot テンプレートリポジトリを選択
 
-### 2. 環境変数の設定
+#### 2. 環境変数の設定
 
-1. Railway ダッシュボードで「Variables」タブを開く
-2. 以下の環境変数を追加：
-   - `CHANNEL_ACCESS_TOKEN`: your-channel-access-token
-   - `CHANNEL_SECRET`: your-channel-secret
+1. Railway ダッシュボードで作成されたプロジェクトをクリック
+2. 「Variables」タブを開く
+3. 以下の環境変数を追加：
 
-### 3. 自動デプロイ
+```env
+CHANNEL_ACCESS_TOKEN=your-channel-access-token-here
+CHANNEL_SECRET=your-channel-secret-here
+ENVIRONMENT=production
+```
 
-- Git にプッシュすると自動的にデプロイされます
-- デプロイ完了後、生成された URL に `/callback` を付けて Webhook URL に設定
+#### 3. 自動デプロイ確認
 
-### 4. Webhook URL の設定
+- Git にコミット・プッシュすると自動的にデプロイされます
+- デプロイ状況は「Deployments」タブで確認
 
-1. Railway ダッシュボードで生成されたドメインを確認
+#### 4. ドメインの確認と Webhook URL 設定
+
+1. Railway ダッシュボードの「Settings」→「Domains」でアプリのURLを確認
+   - 例：`https://your-app-name.up.railway.app`
 2. LINE Developers コンソールで Webhook URL を設定
    - 例：`https://your-app-name.up.railway.app/callback`
-3. 接続確認を実行
+3. 「検証」をクリックして接続確認
+4. 「Webhook の利用」をオンにする
+
+## 🎯 Heroku デプロイメント
+
+### 前提条件
+- Heroku アカウント
+- Heroku CLI のインストール
+
+### デプロイ手順
+
+#### 1. Heroku の準備
+
+```bash
+# Heroku CLI のインストール（macOS）
+brew tap heroku/brew && brew install heroku
+
+# ログイン
+heroku login
+```
+
+#### 2. Procfile の作成
+
+```bash
+# Procfile
+web: python app.py
+```
+
+#### 3. runtime.txt の作成
+
+```bash
+# runtime.txt
+python-3.11.0
+```
+
+#### 4. Heroku アプリの作成とデプロイ
+
+```bash
+# Heroku アプリ作成
+heroku create your-linebot-app-name
+
+# 環境変数設定
+heroku config:set CHANNEL_ACCESS_TOKEN=your-token
+heroku config:set CHANNEL_SECRET=your-secret
+heroku config:set ENVIRONMENT=production
+
+# デプロイ
+git push heroku main
+```
+
+#### 5. Webhook URL の設定
+
+1. Heroku アプリのドメインを確認：`https://your-linebot-app-name.herokuapp.com`
+2. LINE Developers コンソールで Webhook URL を設定
+3. 接続テストを実行
 
 ## ☁️ Google Cloud Run デプロイメント
 
-### 1. Dockerfile の作成
+### 前提条件
+- Google Cloud アカウント
+- Google Cloud CLI のインストール
+
+### デプロイ手順
+
+#### 1. Dockerfile の作成
 
 ```dockerfile
-FROM python:3.9-slim
+# Dockerfile
+FROM python:3.11-slim
 
 WORKDIR /app
 
+# 依存関係のコピーとインストール
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
+# アプリケーションファイルのコピー
 COPY . .
 
-CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8080"]
+# ポート設定（Cloud Run は PORT 環境変数を使用）
+ENV PORT=8080
+
+# アプリケーション起動
+CMD exec uvicorn app:app --host 0.0.0.0 --port $PORT
 ```
 
-### 2. Cloud Run へのデプロイ
+#### 2. app.py の修正
+
+```python
+# app.py - ポート設定部分を修正
+import os
+
+if __name__ == "__main__":
+    port = int(os.getenv("PORT", 8000))  # Cloud Run対応
+    uvicorn.run(
+        "app:app", 
+        host="0.0.0.0", 
+        port=port, 
+        reload=False  # 本番環境ではreloadオフ
+    )
+```
+
+#### 3. Cloud Run へのデプロイ
 
 ```bash
 # Google Cloud CLI でログイン
 gcloud auth login
 
-# プロジェクトを設定
+# プロジェクトID設定
 gcloud config set project YOUR_PROJECT_ID
 
 # Cloud Run にデプロイ
@@ -152,214 +176,249 @@ gcloud run deploy linebot-template \
   --platform managed \
   --region asia-northeast1 \
   --allow-unauthenticated \
-  --port 8080 \
-  --set-env-vars CHANNEL_ACCESS_TOKEN=your-token,CHANNEL_SECRET=your-secret
+  --set-env-vars CHANNEL_ACCESS_TOKEN=your-token,CHANNEL_SECRET=your-secret,ENVIRONMENT=production
 ```
 
-### 3. Webhook URL の設定
+## 🐳 Docker デプロイメント
 
-1. デプロイ完了後、表示される URL に `/callback` を付けて Webhook URL に設定
-2. LINE Developers コンソールで接続確認を実行
+### ローカル Docker テスト
 
-## 🔧 本番環境の設定とベストプラクティス
+```bash
+# Docker イメージのビルド
+docker build -t linebot-template .
 
-### セキュリティ設定
+# コンテナの実行
+docker run -p 8000:8000 \
+  -e CHANNEL_ACCESS_TOKEN=your-token \
+  -e CHANNEL_SECRET=your-secret \
+  linebot-template
+```
 
-#### 環境変数の管理
+### Docker Compose
+
+```yaml
+# docker-compose.yml
+version: '3.8'
+services:
+  linebot:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      - CHANNEL_ACCESS_TOKEN=${CHANNEL_ACCESS_TOKEN}
+      - CHANNEL_SECRET=${CHANNEL_SECRET}
+      - ENVIRONMENT=production
+    restart: unless-stopped
+
+  # オプション: Redis やデータベースを追加
+  # redis:
+  #   image: redis:alpine
+  #   ports:
+  #     - "6379:6379"
+```
+
+## 🔧 本番環境最適化
+
+### 1. パフォーマンス設定
 
 ```python
-# app.py での設定例
+# app.py - 本番環境設定
 import os
-from dotenv import load_dotenv
 
-# 本番環境では .env ファイルを使用しない
-if os.getenv("ENVIRONMENT") != "production":
-    load_dotenv()
+# 本番環境では不要な機能を無効化
+app = FastAPI(
+    title="LINE Bot Template",
+    docs_url=None if os.getenv("ENVIRONMENT") == "production" else "/docs",
+    redoc_url=None if os.getenv("ENVIRONMENT") == "production" else "/redoc",
+    openapi_url=None if os.getenv("ENVIRONMENT") == "production" else "/openapi.json"
+)
 
-CHANNEL_ACCESS_TOKEN = os.getenv("CHANNEL_ACCESS_TOKEN")
-CHANNEL_SECRET = os.getenv("CHANNEL_SECRET")
-
-if not CHANNEL_ACCESS_TOKEN or not CHANNEL_SECRET:
-    raise ValueError("必須の環境変数が設定されていません")
-```
-
-#### ログレベルの調整
-
-```python
-# 本番環境でのログ設定
-import logging
-
-# 本番環境では INFO レベル以上のみ
+# ログレベルの調整
 log_level = logging.INFO if os.getenv("ENVIRONMENT") == "production" else logging.DEBUG
 logging.basicConfig(level=log_level)
 ```
 
-### パフォーマンス最適化
-
-#### ワーカープロセス数の設定
-
-```bash
-# 本番環境での起動例
-uvicorn app:app --host 0.0.0.0 --port $PORT --workers 2
-```
-
-#### ヘルスチェックエンドポイント
+### 2. ヘルスチェックエンドポイント
 
 ```python
+# app.py - ヘルスチェック追加
 @app.get("/health")
 async def health_check():
-    return {"status": "healthy", "timestamp": time.time()}
+    """ヘルスチェック用エンドポイント"""
+    return {
+        "status": "healthy",
+        "timestamp": time.time(),
+        "handlers": len(event_handler_map),
+        "message": "OK"
+    }
 ```
 
-## 📊 監視とアラート
-
-### 基本的な監視項目
-
-- HTTP レスポンス時間
-- エラー率
-- メモリ・CPU 使用率
-- Webhook 応答成功率
-
-### おすすめ監視ツール
-
-- **Google Cloud**: Cloud Monitoring
-- **Railway**: 組み込み監視ダッシュボード
-- **外部**: New Relic, Datadog
-- **無料**: UptimeRobot（外形監視）
-
-## 🔒 セキュリティチェックリスト
-
-- [ ] 環境変数で認証情報を管理
-- [ ] HTTPS の強制
-- [ ] Webhook 署名の検証
-- [ ] レート制限の実装
-- [ ] ログでの機密情報の除去
-- [ ] 依存関係の脆弱性チェック
-
-### 依存関係の脆弱性チェック
-
-```bash
-# 定期的に実行
-pip audit
-```
-
-## 🎯 本番環境チェックリスト
-
-デプロイ前に以下を確認：
-
-- [ ] 環境変数が正しく設定されている
-- [ ] Webhook URL が正しく設定されている
-- [ ] ヘルスチェックエンドポイントが動作する
-- [ ] ログが適切に出力される
-- [ ] エラーハンドリングが適切に動作する
-- [ ] LINE Bot の基本機能（鸚鵡返し、profile）が動作する
-- [ ] 監視・アラートが設定されている
-
-## 💡 トラブルシューティング
-
-### よくある問題
-
-#### Webhook 接続エラー
-
-- サーバーが起動しているか確認
-- Webhook URL が正しく設定されているか確認
-- HTTPS でアクセス可能か確認
-
-#### 認証エラー
-
-- `CHANNEL_ACCESS_TOKEN` と `CHANNEL_SECRET` が正しく設定されているか確認
-- 環境変数に余計なスペースや改行がないか確認
-
-#### メッセージが返ってこない
-
-- サーバーログを確認
-- LINE 公式アカウントの応答メッセージがオフになっているか確認
-- エラーログで API 呼び出しの失敗を確認
-
-各プラットフォーム固有の問題については、それぞれの公式ドキュメントを参照してください。
-
-#### 1. ヘルスチェックエンドポイント
+### 3. 環境変数の検証
 
 ```python
-@app.get("/health")
-async def health_check():
-    return {"status": "healthy", "timestamp": time.time()}
+# app.py - 本番環境での厳密な検証
+def validate_production_environment():
+    """本番環境の環境変数を厳密に検証"""
+    if os.getenv("ENVIRONMENT") == "production":
+        required_vars = ["CHANNEL_ACCESS_TOKEN", "CHANNEL_SECRET"]
+        missing = [var for var in required_vars if not os.getenv(var)]
+        
+        if missing:
+            raise ValueError(f"本番環境で必須の環境変数が不足: {missing}")
+        
+        # トークンの形式チェック（基本的な検証）
+        token = os.getenv("CHANNEL_ACCESS_TOKEN")
+        if not token or len(token) < 50:
+            raise ValueError("CHANNEL_ACCESS_TOKEN が無効です")
+        
+        secret = os.getenv("CHANNEL_SECRET") 
+        if not secret or len(secret) < 20:
+            raise ValueError("CHANNEL_SECRET が無効です")
 ```
 
-#### 2. 構造化ログ（推奨）
+## 📊 監視とログ
+
+### 1. 基本的な監視項目
+
+- **応答時間**: Webhook レスポンス時間
+- **エラー率**: 4xx, 5xx エラーの発生率
+- **メモリ使用量**: アプリケーションメモリ消費
+- **CPU 使用率**: プロセッサ使用状況
+
+### 2. ログ管理
 
 ```python
+# 本番環境での構造化ログ
 import json
 import logging
 
-class JSONFormatter(logging.Formatter):
+class ProductionFormatter(logging.Formatter):
+    """本番環境用JSON形式ログフォーマッター"""
+    
     def format(self, record):
         log_entry = {
             "timestamp": self.formatTime(record),
             "level": record.levelname,
             "message": record.getMessage(),
-            "module": record.module
+            "module": record.module,
+            "function": record.funcName,
+            "line": record.lineno
         }
+        
+        if record.exc_info:
+            log_entry["exception"] = self.formatException(record.exc_info)
+        
         return json.dumps(log_entry, ensure_ascii=False)
 
-# 本番環境でJSON形式のログを使用
+# 本番環境でJSON形式ログを使用
 if os.getenv("ENVIRONMENT") == "production":
     handler = logging.StreamHandler()
-    handler.setFormatter(JSONFormatter())
-    logging.getLogger().addHandler(handler)
+    handler.setFormatter(ProductionFormatter())
+    logging.getLogger().handlers = [handler]
 ```
 
-## 📊 監視とアラート
+### 3. 監視ツールの推奨
 
-### 基本的な監視項目
+| ツール | 用途 | 無料枠 |
+|--------|------|--------|
+| **UptimeRobot** | 外形監視 | ✅ |
+| **Google Cloud Monitoring** | インフラ監視 | ✅ |
+| **Railway Metrics** | アプリケーション監視 | ✅ |
+| **Sentry** | エラー追跡 | ✅ |
 
-- HTTP レスポンス時間
-- エラー率
-- メモリ・CPU 使用率
-- Webhook 応答成功率
+## 🔒 セキュリティ
 
-### おすすめ監視ツール
+### 1. 必須セキュリティ設定
 
-- **Heroku**: Heroku Metrics
-- **Google Cloud**: Cloud Monitoring
-- **外部**: New Relic, Datadog
-- **無料**: UptimeRobot（外形監視）
+```python
+# セキュリティヘッダーの追加
+from fastapi.middleware.security import SecurityHeadersMiddleware
 
-## 🔒 セキュリティチェックリスト
+app.add_middleware(SecurityHeadersMiddleware)
 
-- [ ] 環境変数で認証情報を管理
-- [ ] HTTPS の強制
-- [ ] Webhook 署名の検証
-- [ ] レート制限の実装
-- [ ] ログでの機密情報の除去
-- [ ] 依存関係の脆弱性チェック
+# HTTPS強制（本番環境）
+if os.getenv("ENVIRONMENT") == "production":
+    @app.middleware("http")
+    async def force_https(request, call_next):
+        if request.url.scheme != "https":
+            return RedirectResponse(
+                url=str(request.url).replace("http://", "https://"),
+                status_code=301
+            )
+        return await call_next(request)
+```
 
-### 依存関係の脆弱性チェック
+### 2. レート制限
 
-```bash
-# 定期的に実行
-pip audit
+```python
+# レート制限の実装例
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+
+limiter = Limiter(key_func=get_remote_address)
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+@app.post("/callback")
+@limiter.limit("100/minute")  # 1分間に100リクエストまで
+async def webhook_callback(request: Request):
+    # 既存の処理
 ```
 
 ## 🎯 本番環境チェックリスト
 
-デプロイ前に以下を確認：
+デプロイ前の確認項目：
 
+### 環境設定
 - [ ] 環境変数が正しく設定されている
+- [ ] `ENVIRONMENT=production` が設定されている
+- [ ] 本番用のログレベルになっている
+- [ ] 不要なデバッグ機能が無効化されている
+
+### LINE設定
 - [ ] Webhook URL が正しく設定されている
+- [ ] 「Webhook の利用」がオンになっている
+- [ ] 「応答メッセージ」がオフになっている
+- [ ] Bot の基本機能が動作する
+
+### 監視・セキュリティ
 - [ ] ヘルスチェックエンドポイントが動作する
 - [ ] ログが適切に出力される
-- [ ] エラーハンドリングが適切に動作する
-- [ ] LINE Bot の基本機能（鸚鵡返し、profile）が動作する
-- [ ] 監視・アラートが設定されている
+- [ ] エラー処理が適切に動作する
+- [ ] HTTPS でアクセス可能
+- [ ] セキュリティヘッダーが設定されている
 
-## 📈 スケーリング
+### パフォーマンス
+- [ ] レスポンス時間が許容範囲内
+- [ ] メモリ使用量が適切
+- [ ] 並行処理が正しく動作する
 
-### トラフィック増加への対応
+## 💡 トラブルシューティング
 
-- ワーカープロセス数の増加
-- 水平スケーリング（複数インスタンス）
+### よくある本番環境の問題
+
+#### 1. Webhook タイムアウト
+**症状**: LINE からの Webhook が失敗する
+
+**解決方法**:
+- バックグラウンド処理の実装確認
+- 外部API呼び出しのタイムアウト設定
+- データベース処理の最適化
+
+#### 2. メモリ不足
+**症状**: アプリケーションが頻繁に再起動する
+
+**解決方法**:
+- メモリ使用量の監視
+- 不要なオブジェクトの削除
+- ガベージコレクションの最適化
+
+#### 3. 高負荷時の性能劣化
+**症状**: レスポンス時間が長くなる
+
+**解決方法**:
 - 非同期処理の最適化
-- キャッシュの導入（Redis 等）
+- コネクションプールの使用
+- キャッシュの実装
 
-高トラフィック環境では、より本格的なアーキテクチャ（ロードバランサー、データベース、キューシステム）の導入を検討してください。
+各プラットフォーム固有の問題については、それぞれの公式ドキュメントも参照してください。

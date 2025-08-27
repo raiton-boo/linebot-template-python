@@ -1,344 +1,423 @@
-# カスタムハンドラの作成
+# デプロイメントガイド
 
-このドキュメントでは、新しいイベントハンドラの作成方法と既存ハンドラのカスタマイズ方法を説明します。
+このドキュメントでは、ローカル開発環境から本番環境へのデプロイメント方法を説明します。
 
-## 🏗 ハンドラアーキテクチャ
+## 🖥 開発環境（ngrok使用）
 
-### ベースハンドラクラス
+開発環境のセットアップについては [📝 セットアップガイド](./setup.md) を参照してください。
 
-すべてのイベントハンドラは `BaseEventHandler` を継承します：
+## 🌐 本番環境デプロイメントオプション
 
-```python
-# handlers/base_handler.py
-from abc import ABC, abstractmethod
-import logging
-from linebot.v3.messaging import AsyncMessagingApi
+### 推奨プラットフォーム
 
-class BaseEventHandler(ABC):
-    def __init__(self, line_bot_api: AsyncMessagingApi):
-        self.line_bot_api = line_bot_api
-        self.logger = logging.getLogger(self.__class__.__name__)
+| プラットフォーム | 難易度 | コスト | 特徴 |
+|------------------|--------|--------|------|
+| **Railway** | 低 | 低 | Git連携、簡単デプロイ |
+| **Heroku** | 低 | 中 | 老舗PaaS、豊富なドキュメント |
+| **Google Cloud Run** | 中 | 低 | サーバーレス、スケーラブル |
+| **AWS Lambda** | 高 | 低 | サーバーレス、高可用性 |
+| **VPS** | 高 | 低 | 自由度高、コスト効率 |
 
-    @abstractmethod
-    async def handle(self, event) -> None:
-        """イベント処理の抽象メソッド"""
-        pass
+## 🚂 Railway デプロイメント（推奨）
+
+### メリット
+- Git プッシュだけで自動デプロイ
+- 無料枠が充実
+- 環境変数管理が簡単
+- ログ確認が容易
+
+### デプロイ手順
+
+#### 1. Railway プロジェクトの作成
+
+1. [Railway](https://railway.app) にサインアップ
+2. GitHub アカウントで連携
+3. 「New Project」をクリック
+4. 「Deploy from GitHub repo」を選択
+5. LINE Bot テンプレートリポジトリを選択
+
+#### 2. 環境変数の設定
+
+1. Railway ダッシュボードで作成されたプロジェクトをクリック
+2. 「Variables」タブを開く
+3. 以下の環境変数を追加：
+
+```env
+CHANNEL_ACCESS_TOKEN=your-channel-access-token-here
+CHANNEL_SECRET=your-channel-secret-here
+ENVIRONMENT=production
 ```
 
-## 📝 新しいハンドラの作成
+#### 3. 自動デプロイ確認
 
-### 1. カスタムメッセージハンドラの例
+- Git にコミット・プッシュすると自動的にデプロイされます
+- デプロイ状況は「Deployments」タブで確認
 
-```python
-# handlers/custom_message_handler.py
-from typing import Any
-from linebot.v3.messaging import TextMessage, ReplyMessageRequest
-from linebot.v3.webhooks import MessageEvent
-from .base_handler import BaseEventHandler
+#### 4. ドメインの確認と Webhook URL 設定
 
-class CustomMessageHandler(BaseEventHandler):
-    """カスタムメッセージハンドラの例"""
+1. Railway ダッシュボードの「Settings」→「Domains」でアプリのURLを確認
+   - 例：`https://your-app-name.up.railway.app`
+2. LINE Developers コンソールで Webhook URL を設定
+   - 例：`https://your-app-name.up.railway.app/callback`
+3. 「検証」をクリックして接続確認
+4. 「Webhook の利用」をオンにする
 
-    async def handle(self, event: MessageEvent) -> None:
-        """メッセージイベントをカスタム処理"""
-        try:
-            if not hasattr(event.message, "text"):
-                return
+## 🎯 Heroku デプロイメント
 
-            message_text = event.message.text.strip().lower()
+### 前提条件
+- Heroku アカウント
+- Heroku CLI のインストール
 
-            # コマンドパターンで処理を分岐
-            if message_text.startswith("/weather"):
-                await self._handle_weather_command(event, message_text)
-            elif message_text.startswith("/help"):
-                await self._handle_help_command(event)
-            elif message_text == "今何時？":
-                await self._handle_time_command(event)
-            else:
-                await self._handle_default_message(event)
+### デプロイ手順
 
-        except Exception as e:
-            self.logger.error(f"カスタムメッセージ処理エラー: {e}")
-            await self._send_error_message(event)
+#### 1. Heroku の準備
 
-    async def _handle_weather_command(self, event: MessageEvent, message_text: str) -> None:
-        """天気コマンド処理"""
-        # 天気APIを呼び出す処理
-        location = message_text.replace("/weather", "").strip()
-        if not location:
-            location = "東京"
+```bash
+# Heroku CLI のインストール（macOS）
+brew tap heroku/brew && brew install heroku
 
-        # 実際の天気API呼び出しはここに実装
-        weather_info = f"{location}の天気は晴れです☀️"
-
-        await self._send_reply(event.reply_token, weather_info)
-
-    async def _handle_help_command(self, event: MessageEvent) -> None:
-        """ヘルプコマンド処理"""
-        help_text = """
-🤖 利用可能なコマンド:
-
-/weather [場所] - 指定場所の天気を表示
-/help - このヘルプを表示
-今何時？ - 現在時刻を表示
-profile - プロフィール情報を表示
-
-その他のメッセージは鸚鵡返しします。
-        """
-        await self._send_reply(event.reply_token, help_text.strip())
-
-    async def _handle_time_command(self, event: MessageEvent) -> None:
-        """時刻コマンド処理"""
-        from datetime import datetime
-        current_time = datetime.now().strftime("%Y年%m月%d日 %H時%M分")
-        await self._send_reply(event.reply_token, f"現在時刻: {current_time}")
-
-    async def _handle_default_message(self, event: MessageEvent) -> None:
-        """デフォルトメッセージ処理（鸚鵡返し）"""
-        reply_text = f"「{event.message.text}」と言いましたね！"
-        await self._send_reply(event.reply_token, reply_text)
-
-    async def _send_reply(self, reply_token: str, text: str) -> None:
-        """返信送信のヘルパーメソッド"""
-        messages = [TextMessage(text=text)]
-        await self.line_bot_api.reply_message(
-            ReplyMessageRequest(reply_token=reply_token, messages=messages)
-        )
-
-    async def _send_error_message(self, event: MessageEvent) -> None:
-        """エラーメッセージ送信"""
-        error_text = "申し訳ございませんが、処理中にエラーが発生しました。"
-        await self._send_reply(event.reply_token, error_text)
+# ログイン
+heroku login
 ```
 
-### 2. カスタム Postback ハンドラの例
+#### 2. Procfile の作成
 
-```python
-# handlers/postback_handler.py
-from linebot.v3.messaging import TextMessage, ReplyMessageRequest
-from linebot.v3.webhooks import PostbackEvent
-from .base_handler import BaseEventHandler
-
-class PostbackEventHandler(BaseEventHandler):
-    """ポストバックイベントハンドラ"""
-
-    async def handle(self, event: PostbackEvent) -> None:
-        """ポストバックイベント処理"""
-        try:
-            data = event.postback.data
-
-            if data == "action=menu":
-                await self._show_menu(event)
-            elif data.startswith("action=select_"):
-                await self._handle_selection(event, data)
-            else:
-                await self._handle_unknown_postback(event)
-
-        except Exception as e:
-            self.logger.error(f"ポストバック処理エラー: {e}")
-
-    async def _show_menu(self, event: PostbackEvent) -> None:
-        """メニュー表示"""
-        menu_text = "メニューが表示されました！"
-        await self._send_reply(event.reply_token, menu_text)
-
-    async def _handle_selection(self, event: PostbackEvent, data: str) -> None:
-        """選択項目処理"""
-        selection = data.replace("action=select_", "")
-        response_text = f"「{selection}」を選択しました！"
-        await self._send_reply(event.reply_token, response_text)
-
-    async def _handle_unknown_postback(self, event: PostbackEvent) -> None:
-        """不明なポストバック処理"""
-        self.logger.warning(f"不明なポストバック: {event.postback.data}")
-
-    async def _send_reply(self, reply_token: str, text: str) -> None:
-        """返信送信"""
-        messages = [TextMessage(text=text)]
-        await self.line_bot_api.reply_message(
-            ReplyMessageRequest(reply_token=reply_token, messages=messages)
-        )
+```bash
+# Procfile
+web: python app.py
 ```
 
-## 🔌 ハンドラの登録
+#### 3. runtime.txt の作成
 
-### 1. ハンドラマッピングの追加
+```bash
+# runtime.txt
+python-3.11.0
+```
+
+#### 4. Heroku アプリの作成とデプロイ
+
+```bash
+# Heroku アプリ作成
+heroku create your-linebot-app-name
+
+# 環境変数設定
+heroku config:set CHANNEL_ACCESS_TOKEN=your-token
+heroku config:set CHANNEL_SECRET=your-secret
+heroku config:set ENVIRONMENT=production
+
+# デプロイ
+git push heroku main
+```
+
+#### 5. Webhook URL の設定
+
+1. Heroku アプリのドメインを確認：`https://your-linebot-app-name.herokuapp.com`
+2. LINE Developers コンソールで Webhook URL を設定
+3. 接続テストを実行
+
+## ☁️ Google Cloud Run デプロイメント
+
+### 前提条件
+- Google Cloud アカウント
+- Google Cloud CLI のインストール
+
+### デプロイ手順
+
+#### 1. Dockerfile の作成
+
+```dockerfile
+# Dockerfile
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# 依存関係のコピーとインストール
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# アプリケーションファイルのコピー
+COPY . .
+
+# ポート設定（Cloud Run は PORT 環境変数を使用）
+ENV PORT=8080
+
+# アプリケーション起動
+CMD exec uvicorn app:app --host 0.0.0.0 --port $PORT
+```
+
+#### 2. app.py の修正
 
 ```python
-# app.py でハンドラを登録
-from handlers import (
-    MessageEventHandler,
-    FollowEventHandler,
-    CustomMessageHandler,  # 新しいハンドラ
-    PostbackEventHandler   # 新しいハンドラ
+# app.py - ポート設定部分を修正
+import os
+
+if __name__ == "__main__":
+    port = int(os.getenv("PORT", 8000))  # Cloud Run対応
+    uvicorn.run(
+        "app:app", 
+        host="0.0.0.0", 
+        port=port, 
+        reload=False  # 本番環境ではreloadオフ
+    )
+```
+
+#### 3. Cloud Run へのデプロイ
+
+```bash
+# Google Cloud CLI でログイン
+gcloud auth login
+
+# プロジェクトID設定
+gcloud config set project YOUR_PROJECT_ID
+
+# Cloud Run にデプロイ
+gcloud run deploy linebot-template \
+  --source . \
+  --platform managed \
+  --region asia-northeast1 \
+  --allow-unauthenticated \
+  --set-env-vars CHANNEL_ACCESS_TOKEN=your-token,CHANNEL_SECRET=your-secret,ENVIRONMENT=production
+```
+
+## 🐳 Docker デプロイメント
+
+### ローカル Docker テスト
+
+```bash
+# Docker イメージのビルド
+docker build -t linebot-template .
+
+# コンテナの実行
+docker run -p 8000:8000 \
+  -e CHANNEL_ACCESS_TOKEN=your-token \
+  -e CHANNEL_SECRET=your-secret \
+  linebot-template
+```
+
+### Docker Compose
+
+```yaml
+# docker-compose.yml
+version: '3.8'
+services:
+  linebot:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      - CHANNEL_ACCESS_TOKEN=${CHANNEL_ACCESS_TOKEN}
+      - CHANNEL_SECRET=${CHANNEL_SECRET}
+      - ENVIRONMENT=production
+    restart: unless-stopped
+
+  # オプション: Redis やデータベースを追加
+  # redis:
+  #   image: redis:alpine
+  #   ports:
+  #     - "6379:6379"
+```
+
+## 🔧 本番環境最適化
+
+### 1. パフォーマンス設定
+
+```python
+# app.py - 本番環境設定
+import os
+
+# 本番環境では不要な機能を無効化
+app = FastAPI(
+    title="LINE Bot Template",
+    docs_url=None if os.getenv("ENVIRONMENT") == "production" else "/docs",
+    redoc_url=None if os.getenv("ENVIRONMENT") == "production" else "/redoc",
+    openapi_url=None if os.getenv("ENVIRONMENT") == "production" else "/openapi.json"
 )
 
-# ハンドラマッピング
-EVENT_HANDLERS: Dict[Type[Any], Type[BaseEventHandler]] = {
-    MessageEvent: CustomMessageHandler,  # デフォルトの代わりにカスタムハンドラを使用
-    FollowEvent: FollowEventHandler,
-    UnfollowEvent: UnfollowEventHandler,
-    PostbackEvent: PostbackEventHandler,  # ポストバックイベント追加
-    # 他のイベント...
-}
+# ログレベルの調整
+log_level = logging.INFO if os.getenv("ENVIRONMENT") == "production" else logging.DEBUG
+logging.basicConfig(level=log_level)
 ```
 
-### 2. 新しいイベントタイプの追加
+### 2. ヘルスチェックエンドポイント
 
 ```python
-# 新しいイベントタイプをインポート
-from linebot.v3.webhooks import PostbackEvent, QuickReplyEvent
-
-# イベントハンドラマッピングに追加
-EVENT_HANDLERS: Dict[Type[Any], Type[BaseEventHandler]] = {
-    # 既存のハンドラ...
-    PostbackEvent: PostbackEventHandler,
-    # QuickReplyEvent: QuickReplyEventHandler,  # 必要に応じて
-}
+# app.py - ヘルスチェック追加
+@app.get("/health")
+async def health_check():
+    """ヘルスチェック用エンドポイント"""
+    return {
+        "status": "healthy",
+        "timestamp": time.time(),
+        "handlers": len(event_handler_map)
+    }
 ```
 
-## 🛠 高度なカスタマイズ
-
-### 1. データベース連携ハンドラ
+### 3. 環境変数の検証
 
 ```python
-# handlers/database_handler.py
-import asyncpg
-from .base_handler import BaseEventHandler
+# app.py - 本番環境での厳密な検証
+def validate_production_environment():
+    """本番環境の環境変数を厳密に検証"""
+    if os.getenv("ENVIRONMENT") == "production":
+        required_vars = ["CHANNEL_ACCESS_TOKEN", "CHANNEL_SECRET"]
+        missing = [var for var in required_vars if not os.getenv(var)]
+        
+        if missing:
+            raise ValueError(f"本番環境で必須の環境変数が不足: {missing}")
+        
+        # トークンの形式チェック（基本的な検証）
+        token = os.getenv("CHANNEL_ACCESS_TOKEN")
+        if not token or len(token) < 50:
+            raise ValueError("CHANNEL_ACCESS_TOKEN が無効です")
+        
+        secret = os.getenv("CHANNEL_SECRET") 
+        if not secret or len(secret) < 20:
+            raise ValueError("CHANNEL_SECRET が無効です")
+```
 
-class DatabaseMessageHandler(BaseEventHandler):
-    """データベース連携メッセージハンドラ"""
+## 📊 監視とログ
 
-    def __init__(self, line_bot_api, db_pool):
-        super().__init__(line_bot_api)
-        self.db_pool = db_pool
+### 1. 基本的な監視項目
 
-    async def handle(self, event: MessageEvent) -> None:
-        """メッセージをデータベースに記録して処理"""
-        try:
-            # メッセージをデータベースに保存
-            await self._save_message_to_db(event)
+- **応答時間**: Webhook レスポンス時間
+- **エラー率**: 4xx, 5xx エラーの発生率
+- **メモリ使用量**: アプリケーションメモリ消費
+- **CPU 使用率**: プロセッサ使用状況
 
-            # 通常のメッセージ処理
-            await self._process_message(event)
+### 2. ログ管理
 
-        except Exception as e:
-            self.logger.error(f"データベース処理エラー: {e}")
+```python
+# 本番環境での構造化ログ
+import json
+import logging
 
-    async def _save_message_to_db(self, event: MessageEvent) -> None:
-        """メッセージをデータベースに保存"""
-        async with self.db_pool.acquire() as connection:
-            await connection.execute(
-                "INSERT INTO messages (user_id, text, timestamp) VALUES ($1, $2, $3)",
-                event.source.user_id,
-                event.message.text,
-                event.timestamp
+class ProductionFormatter(logging.Formatter):
+    """本番環境用JSON形式ログフォーマッター"""
+    
+    def format(self, record):
+        log_entry = {
+            "timestamp": self.formatTime(record),
+            "level": record.levelname,
+            "message": record.getMessage(),
+            "module": record.module,
+            "function": record.funcName,
+            "line": record.lineno
+        }
+        
+        if record.exc_info:
+            log_entry["exception"] = self.formatException(record.exc_info)
+        
+        return json.dumps(log_entry, ensure_ascii=False)
+
+# 本番環境でJSON形式ログを使用
+if os.getenv("ENVIRONMENT") == "production":
+    handler = logging.StreamHandler()
+    handler.setFormatter(ProductionFormatter())
+    logging.getLogger().handlers = [handler]
+```
+
+### 3. 監視ツールの推奨
+
+| ツール | 用途 | 無料枠 |
+|--------|------|--------|
+| **UptimeRobot** | 外形監視 | ✅ |
+| **Google Cloud Monitoring** | インフラ監視 | ✅ |
+| **Railway Metrics** | アプリケーション監視 | ✅ |
+| **Sentry** | エラー追跡 | ✅ |
+
+## 🔒 セキュリティ
+
+### 1. 必須セキュリティ設定
+
+```python
+# セキュリティヘッダーの追加
+from fastapi.middleware.security import SecurityHeadersMiddleware
+
+app.add_middleware(SecurityHeadersMiddleware)
+
+# HTTPS強制（本番環境）
+if os.getenv("ENVIRONMENT") == "production":
+    @app.middleware("http")
+    async def force_https(request, call_next):
+        if request.url.scheme != "https":
+            return RedirectResponse(
+                url=str(request.url).replace("http://", "https://"),
+                status_code=301
             )
-
-    async def _process_message(self, event: MessageEvent) -> None:
-        """メッセージ処理ロジック"""
-        # カスタム処理を実装
-        pass
+        return await call_next(request)
 ```
 
-### 2. 外部 API 連携ハンドラ
+### 2. レート制限
 
 ```python
-# handlers/api_handler.py
-import aiohttp
-from .base_handler import BaseEventHandler
+# レート制限の実装例
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
 
-class APIMessageHandler(BaseEventHandler):
-    """外部API連携ハンドラ"""
+limiter = Limiter(key_func=get_remote_address)
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
-    async def handle(self, event: MessageEvent) -> None:
-        """外部APIを呼び出してレスポンス"""
-        try:
-            if event.message.text.startswith("/translate"):
-                await self._handle_translate(event)
-            # 他のAPI処理...
-
-        except Exception as e:
-            self.logger.error(f"API処理エラー: {e}")
-
-    async def _handle_translate(self, event: MessageEvent) -> None:
-        """翻訳API呼び出し"""
-        text = event.message.text.replace("/translate", "").strip()
-
-        async with aiohttp.ClientSession() as session:
-            # 翻訳APIを呼び出し（例：Google Translate API）
-            translated_text = await self._call_translate_api(session, text)
-            await self._send_reply(event.reply_token, translated_text)
-
-    async def _call_translate_api(self, session: aiohttp.ClientSession, text: str) -> str:
-        """実際の翻訳API呼び出し"""
-        # API実装の詳細
-        return f"翻訳結果: {text}"  # プレースホルダー
+@app.post("/callback")
+@limiter.limit("100/minute")  # 1分間に100リクエストまで
+async def webhook_callback(request: Request):
+    # 既存の処理
 ```
 
-## 📋 ベストプラクティス
+## 🎯 本番環境チェックリスト
 
-### 1. エラーハンドリング
+デプロイ前の確認項目：
 
-- すべてのハンドラでトップレベルの try-catch を実装
-- 詳細なログ出力（デバッグ時）
-- ユーザーフレンドリーなエラーメッセージ
+### 環境設定
+- [ ] 環境変数が正しく設定されている
+- [ ] `ENVIRONMENT=production` が設定されている
+- [ ] 本番用のログレベルになっている
+- [ ] 不要なデバッグ機能が無効化されている
 
-### 2. パフォーマンス
+### LINE設定
+- [ ] Webhook URL が正しく設定されている
+- [ ] 「Webhook の利用」がオンになっている
+- [ ] 「応答メッセージ」がオフになっている
+- [ ] Bot の基本機能が動作する
 
-- 長時間の処理は非同期で実行
-- データベースコネクションプールを使用
-- 必要に応じてキャッシュを実装
+### 監視・セキュリティ
+- [ ] ヘルスチェックエンドポイントが動作する
+- [ ] ログが適切に出力される
+- [ ] エラー処理が適切に動作する
+- [ ] HTTPS でアクセス可能
+- [ ] セキュリティヘッダーが設定されている
 
-### 3. テスト可能性
+### パフォーマンス
+- [ ] レスポンス時間が許容範囲内
+- [ ] メモリ使用量が適切
+- [ ] 並行処理が正しく動作する
 
-- ハンドラロジックをテストしやすく設計
-- 外部依存関係をモック可能にする
-- 単体テストを作成
+## 💡 トラブルシューティング
 
-### 4. 設定管理
+### よくある本番環境の問題
 
-```python
-# config.py
-class Config:
-    WEATHER_API_KEY = os.getenv("WEATHER_API_KEY")
-    DATABASE_URL = os.getenv("DATABASE_URL")
-    TRANSLATE_API_KEY = os.getenv("TRANSLATE_API_KEY")
+#### 1. Webhook タイムアウト
+**症状**: LINE からの Webhook が失敗する
 
-# ハンドラで使用
-from config import Config
+**解決方法**:
+- バックグラウンド処理の実装確認
+- 外部API呼び出しのタイムアウト設定
+- データベース処理の最適化
 
-class WeatherHandler(BaseEventHandler):
-    def __init__(self, line_bot_api):
-        super().__init__(line_bot_api)
-        self.api_key = Config.WEATHER_API_KEY
-```
+#### 2. メモリ不足
+**症状**: アプリケーションが頻繁に再起動する
 
-## 🧪 テスト例
+**解決方法**:
+- メモリ使用量の監視
+- 不要なオブジェクトの削除
+- ガベージコレクションの最適化
 
-```python
-# tests/test_custom_handler.py
-import pytest
-from unittest.mock import AsyncMock, Mock
-from handlers.custom_message_handler import CustomMessageHandler
+#### 3. 高負荷時の性能劣化
+**症状**: レスポンス時間が長くなる
 
-@pytest.mark.asyncio
-async def test_weather_command():
-    """天気コマンドのテスト"""
-    # モック作成
-    mock_api = AsyncMock()
-    handler = CustomMessageHandler(mock_api)
+**解決方法**:
+- 非同期処理の最適化
+- コネクションプールの使用
+- キャッシュの実装
 
-    # テストイベント作成
-    event = Mock()
-    event.message.text = "/weather 東京"
-    event.reply_token = "test_token"
-
-    # ハンドラ実行
-    await handler.handle(event)
-
-    # アサーション
-    mock_api.reply_message.assert_called_once()
-```
-
-このようにハンドラを作成・カスタマイズすることで、LINE Bot の機能を柔軟に拡張できます。
+各プラットフォーム固有の問題については、それぞれの公式ドキュメントも参照してください。
