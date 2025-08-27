@@ -5,6 +5,9 @@ from linebot.v3.messaging import AsyncMessagingApi, TextMessage, ReplyMessageReq
 
 from .base_handler import BaseEventHandler
 
+# プロフィール取得機能をインポート
+from commands import GetProfileCommand
+
 
 class MessageEventHandler(BaseEventHandler):
     """
@@ -12,6 +15,17 @@ class MessageEventHandler(BaseEventHandler):
 
     ユーザーからテキスト、画像、音声などのメッセージを受信した際に発生するイベントを処理します。
     """
+
+    def __init__(self, line_bot_api: AsyncMessagingApi):
+        """
+        Initialize handler with profile command
+
+        Args:
+            line_bot_api (AsyncMessagingApi): LINE Bot API client
+        """
+        super().__init__(line_bot_api)
+        # プロフィール取得コマンドを初期化
+        self.profile_command = GetProfileCommand(line_bot_api, self.logger)
 
     async def handle(self, event: MessageEvent) -> None:
         """
@@ -62,9 +76,9 @@ class MessageEventHandler(BaseEventHandler):
         """
         message_type = getattr(message, "type", "unknown")
 
-        # テキストメッセージの場合
+        # テキストメッセージの場合（eventも渡す）
         if message_type == "text":
-            return await self._handle_text_message(message)
+            return await self._handle_text_message(message, event)  # eventを追加
 
         # 画像メッセージの場合
         elif message_type == "image":
@@ -93,19 +107,22 @@ class MessageEventHandler(BaseEventHandler):
             address = getattr(message, "address", "不明")
             return f"位置情報を受信しました！\n場所: {title}\n住所: {address}"
 
-        # その他のメッセージタイプ
+        # その他(未対応)のメッセージタイプ
         else:
             return f"{message_type}メッセージを受信しました！"
 
-    async def _handle_text_message(self, message: Any) -> str:
+    async def _handle_text_message(
+        self, message: Any, event: MessageEvent
+    ) -> Optional[str]:
         """
         テキストメッセージの処理
 
         Args:
             message (Any): テキストメッセージオブジェクト
+            event (MessageEvent): メッセージイベント
 
         Returns:
-            str: 返信メッセージ
+            Optional[str]: 返信メッセージ（Noneの場合はコマンドが処理済み）
         """
         text = getattr(message, "text", "").lower().strip()
 
@@ -113,8 +130,17 @@ class MessageEventHandler(BaseEventHandler):
         if not text:
             return "メッセージが受信できませんでした。"
 
-        # 挨拶パターン
+        # プロフィール取得コマンド
         if any(
+            profile_cmd in text
+            for profile_cmd in ["profile", "プロフィール", "ぷろふぃーる"]
+        ):
+            # プロフィール取得コマンドを実行（返信はコマンド内で処理）
+            await self.profile_command.execute(event)
+            return None  # コマンドが返信処理済みのため、Noneを返す
+
+        # 挨拶パターン
+        elif any(
             greeting in text
             for greeting in ["こんにちは", "おはよう", "こんばんは", "hello", "hi"]
         ):
@@ -138,6 +164,7 @@ class MessageEventHandler(BaseEventHandler):
                 "• テキスト、画像、音声などのメッセージに対応\n"
                 "• スタンプや位置情報も受信可能\n"
                 "• 簡単な会話機能\n"
+                "• プロフィール情報の取得（「プロフィール」と送信）\n"
                 "何かメッセージを送ってみてください！"
             )
 
@@ -145,7 +172,7 @@ class MessageEventHandler(BaseEventHandler):
         elif "?" in text or "？" in text:
             return "質問ですね！申し訳ありませんが、まだ詳しい質問にはお答えできません。今後改良していきます！"
 
-        # エコー（オウム返し）
+        # それ以外のメッセージ
         else:
             return None
 
