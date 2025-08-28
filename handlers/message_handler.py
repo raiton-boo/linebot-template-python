@@ -1,7 +1,12 @@
 from typing import Any, Dict, Optional
 
 from linebot.v3.webhooks import MessageEvent
-from linebot.v3.messaging import AsyncMessagingApi, TextMessage, ReplyMessageRequest
+from linebot.v3.messaging import (
+    AsyncMessagingApi,
+    TextMessage,
+    ReplyMessageRequest,
+    ShowLoadingAnimationRequest,
+)
 
 from .base_handler import BaseEventHandler
 
@@ -171,6 +176,22 @@ class MessageEventHandler(BaseEventHandler):
         # 質問パターン
         elif "?" in text or "？" in text:
             return "質問ですね！申し訳ありませんが、まだ詳しい質問にはお答えできません。今後改良していきます！"
+
+        elif "ローディング" in text or "loading" in text:
+            user_id = (
+                event.source.user_id if hasattr(event.source, "user_id") else "unknown"
+            )
+            # ローディングアニメーションを開始
+            try:
+                await self.line_bot_api.show_loading_animation(
+                    ShowLoadingAnimationRequest(chat_id=user_id, loading_seconds=5)
+                )
+                self.logger.info(f"Loading animation started for user: {user_id}")
+            except Exception as loading_error:
+                # ローディングアニメーションのエラーは処理を止めない
+                self.logger.warning(
+                    f"Failed to show loading animation: {loading_error}"
+                )
 
         # それ以外のメッセージ
         else:
