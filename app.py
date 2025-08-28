@@ -26,7 +26,6 @@ from linebot.v3.webhooks import (
     PostbackEvent,
     BeaconEvent,
     VideoPlayCompleteEvent,
-    ThingsEvent,
     AccountLinkEvent,
 )
 
@@ -44,7 +43,6 @@ from handlers import (
     UnfollowEventHandler,
     UnsendEventHandler,
     VideoPlayCompleteEventHandler,
-    ThingsEventHandler,
     AccountLinkEventHandler,
 )
 
@@ -127,7 +125,6 @@ def create_event_handler_map(
         PostbackEvent: PostbackEventHandler(api),
         BeaconEvent: BeaconEventHandler(api),
         VideoPlayCompleteEvent: VideoPlayCompleteEventHandler(api),
-        ThingsEvent: ThingsEventHandler(api),
         AccountLinkEvent: AccountLinkEventHandler(api),
     }
 
