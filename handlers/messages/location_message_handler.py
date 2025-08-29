@@ -17,7 +17,13 @@ class LocationMessageHandler(BaseMessageHandler):
         location_info = self._get_location_info(event)
 
         if not location_info:
-            raise ValueError("Failed to extract location information")
+            response = "位置情報を受信しましたが、詳細を取得できませんでした。"
+            await self.line_bot_api.reply_message(
+                ReplyMessageRequest(
+                    reply_token=event.reply_token, messages=[TextMessage(text=response)]
+                )
+            )
+            return
 
         # 位置情報の分析
         analysis = self._analyze_location(location_info)
@@ -34,15 +40,31 @@ class LocationMessageHandler(BaseMessageHandler):
     def _get_location_info(self, event: MessageEvent) -> Dict[str, Any]:
         """位置情報を取得"""
         message = event.message
-        if not isinstance(message, LocationMessage):
-            return {}
 
-        return {
-            "title": message.title,
-            "address": message.address,
-            "latitude": message.latitude,
-            "longitude": message.longitude,
-        }
+        # LocationMessageContentの属性を安全に取得
+        location_info = {}
+
+        try:
+            # 各属性を安全に取得
+            title = getattr(message, "title", None)
+            address = getattr(message, "address", None)
+            latitude = getattr(message, "latitude", None)
+            longitude = getattr(message, "longitude", None)
+
+            # 値が存在する場合のみ追加
+            if title:
+                location_info["title"] = title
+            if address:
+                location_info["address"] = address
+            if latitude is not None:
+                location_info["latitude"] = latitude
+            if longitude is not None:
+                location_info["longitude"] = longitude
+
+        except Exception as e:
+            self.logger.warning(f"位置情報属性取得エラー: {e}")
+
+        return location_info
 
     def _analyze_location(self, location_info: Dict[str, Any]) -> Dict[str, Any]:
         """位置情報を分析"""
