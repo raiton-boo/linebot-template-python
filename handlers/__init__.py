@@ -22,7 +22,6 @@ from .video_play_complete_handler import VideoPlayCompleteEventHandler
 
 # Account & Service Integration Handlers（アカウント・サービス連携）
 from .account_link_handler import AccountLinkEventHandler
-from .things_handler import ThingsEventHandler
 
 
 # Exports
@@ -45,5 +44,4 @@ __all__ = [
     "VideoPlayCompleteEventHandler",
     # Account & Service Integration Handlers
     "AccountLinkEventHandler",
-    "ThingsEventHandler",
 ]
