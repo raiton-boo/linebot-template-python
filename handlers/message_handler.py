@@ -1,6 +1,16 @@
 from typing import Dict, Any, Optional
 
-from linebot.v3.webhooks import MessageEvent, Event
+from linebot.v3.webhooks import (
+    MessageEvent,
+    Event,
+    TextMessageContent,
+    ImageMessageContent,
+    AudioMessageContent,
+    VideoMessageContent,
+    StickerMessageContent,
+    LocationMessageContent,
+    FileMessageContent,
+)
 from linebot.v3.messaging import AsyncMessagingApi, ReplyMessageRequest, TextMessage
 
 from .base_handler import BaseEventHandler
@@ -17,73 +27,48 @@ from .messages import (
 
 
 class MessageEventHandler(BaseEventHandler):
-    """
-    MessageEvent handler
-
-    各メッセージタイプを専用ハンドラーに委譲し、
-    公式SDKのパターンに従った統一された処理を提供
-    """
+    """メッセージイベントハンドラ"""
 
     def __init__(self, line_bot_api: AsyncMessagingApi):
-        """
-        Initialize MessageEventHandler
-
-        Args:
-            line_bot_api (AsyncMessagingApi): LINE Bot API client
-        """
         super().__init__(line_bot_api)
 
-        # メッセージタイプ別ハンドラーマップ
-        self.message_handlers: Dict[str, BaseMessageHandler] = {
-            "text": TextMessageHandler(line_bot_api),
-            "image": ImageMessageHandler(line_bot_api),
-            "audio": AudioMessageHandler(line_bot_api),
-            "video": VideoMessageHandler(line_bot_api),
-            "sticker": StickerMessageHandler(line_bot_api),
-            "location": LocationMessageHandler(line_bot_api),
-            "file": FileMessageHandler(line_bot_api),
+        # メッセージコンテンツタイプ別ハンドラーマップ
+        self.message_handlers: Dict[type, BaseMessageHandler] = {
+            TextMessageContent: TextMessageHandler(line_bot_api),
+            ImageMessageContent: ImageMessageHandler(line_bot_api),
+            AudioMessageContent: AudioMessageHandler(line_bot_api),
+            VideoMessageContent: VideoMessageHandler(line_bot_api),
+            StickerMessageContent: StickerMessageHandler(line_bot_api),
+            LocationMessageContent: LocationMessageHandler(line_bot_api),
+            FileMessageContent: FileMessageHandler(line_bot_api),
         }
 
     async def handle(self, event: Event) -> None:
-        """
-        Process message event
-
-        Args:
-            event (Event): イベント
-
-        Raises:
-            Exception: Error occurred during event processing
-        """
+        """メッセージイベントの処理"""
         if not isinstance(event, MessageEvent):
-            raise ValueError("Event is not a MessageEvent")
+            return
 
-        # メッセージタイプを取得
-        message_type = getattr(event.message, "type", "unknown")
+        # メッセージコンテンツのタイプを取得
+        message_content_type = type(event.message)
 
-        # 対応するハンドラーを取得
-        handler = self.message_handlers.get(message_type)
+        handler = self.message_handlers.get(message_content_type)
 
         if handler:
-            # 専用ハンドラーで処理
-            await handler.handle(event)
+            await handler.safe_handle(event)
         else:
-            # 未対応のメッセージタイプ
-            await self._handle_unsupported_message_type(event, message_type)
+            await self._handle_unsupported_message_type(event, message_content_type)
 
     async def _handle_unsupported_message_type(
-        self, event: MessageEvent, message_type: str
+        self, event: MessageEvent, message_content_type: type
     ) -> None:
-        """
-        未対応のメッセージタイプを処理
-
-        Args:
-            event (MessageEvent): メッセージイベント
-            message_type (str): メッセージタイプ
-        """
-        self.logger.warning(f"Unsupported message type: {message_type}")
+        """未対応メッセージタイプの処理"""
+        content_type_name = (
+            message_content_type.__name__ if message_content_type else "unknown"
+        )
+        self.logger.warning(f"Unsupported message type: {content_type_name}")
 
         try:
-            response = f"申し訳ございません。{message_type}タイプのメッセージには、まだ対応しておりません。"
+            response = f"申し訳ございません。{content_type_name}タイプのメッセージには、まだ対応しておりません。"
 
             await self.line_bot_api.reply_message(
                 ReplyMessageRequest(
@@ -92,27 +77,23 @@ class MessageEventHandler(BaseEventHandler):
             )
         except Exception as reply_error:
             self.logger.error(
-                f"Failed to reply for unsupported message type: {reply_error}"
+                f"Failed to reply for unsupported message content type: {reply_error}"
             )
 
     async def _error_handle(
         self, error: Exception, event: Event, context: Optional[Dict[str, Any]] = None
     ) -> None:
-        """
-        エラーハンドリング
-
-        Args:
-            error (Exception): エラー
-            event (Event): イベント
-            context (Optional[Dict[str, Any]]): コンテキスト情報
-        """
+        """エラーハンドリング"""
         try:
             if isinstance(event, MessageEvent):
-                message_type = getattr(event.message, "type", "unknown")
+                message_content_type = type(event.message)
+                content_type_name = (
+                    message_content_type.__name__ if message_content_type else "unknown"
+                )
                 user_id = getattr(event.source, "user_id", "unknown")
 
                 self.logger.error(
-                    f"Message handler error ({message_type}) from {user_id}: "
+                    f"Message handler error ({content_type_name}): "
                     f"{type(error).__name__} - {str(error)}",
                     exc_info=True,
                 )
@@ -121,5 +102,4 @@ class MessageEventHandler(BaseEventHandler):
                 self.logger.error(f"Error context: {context}")
 
         except Exception:
-            # 絶対に例外を投げてはいけません
             pass

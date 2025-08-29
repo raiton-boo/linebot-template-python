@@ -1,10 +1,3 @@
-"""
-Message handlers package
-
-各メッセージタイプに特化したハンドラーを提供します。
-公式SDKサンプルのパターンに従い、シンプルで統一された構造を実現。
-"""
-
 from .base_message_handler import BaseMessageHandler
 from .text_message_handler import TextMessageHandler
 from .image_message_handler import ImageMessageHandler

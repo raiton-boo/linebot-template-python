@@ -7,62 +7,31 @@ from .base_handler import BaseEventHandler
 
 
 class JoinEventHandler(BaseEventHandler):
-    """
-    JoinEvent handler
-
-    ボットがグループやルームに招待された際に発生するイベントを処理します。
-    """
+    """グループ参加イベントハンドラ"""
 
     async def handle(self, event: JoinEvent) -> None:
-        """
-        Process join event
+        """グループ参加イベントの処理"""
+        source_type = event.source.type if event.source else "unknown"
+        source_id = getattr(event.source, f"{source_type}_id", "unknown")
 
-        Args:
-            event (JoinEvent): Join event
+        self.logger.info(f"Get Join event")
 
-        Raises:
-            Exception: Error occurred during event processing
-        """
-        try:
-            source_type = event.source.type if event.source else "unknown"
-            source_id = getattr(event.source, f"{source_type}_id", "unknown")
+        greeting_message = (
+            "グループに招待していただき、ありがとうございます。\n"
+            "このボットでは様々な機能をお試しいただけます:\n\n"
+            "・テキストメッセージ\n"
+            "・画像の送信・解析\n"
+            "・音声メッセージ\n"
+            "・動画メッセージ\n"
+            "・位置情報の共有\n"
+            "・ステッカー\n"
+            "・ファイル送信\n\n"
+            "何でもメッセージを送ってみてください。"
+        )
 
-            self.logger.info(f"Bot joined {source_type}: {source_id}")
-
-            # グループ参加時の挨拶メッセージ
-            greeting_message = (
-                "グループに招待していただき、ありがとうございます！\n"
-                "何かメッセージを送ってみてください。"
+        await self.line_bot_api.reply_message(
+            ReplyMessageRequest(
+                reply_token=event.reply_token,
+                messages=[TextMessage(text=greeting_message)],
             )
-            messages = [TextMessage(text=greeting_message)]
-            reply_request = ReplyMessageRequest(
-                reply_token=event.reply_token, messages=messages
-            )
-            await self.line_bot_api.reply_message(reply_request)
-
-        except Exception as error:
-            await self._safe_error_handle(error, event)
-            raise
-
-    async def _error_handle(
-        self,
-        error: Exception,
-        event: JoinEvent,
-        context: Optional[Dict[str, Any]] = None,
-    ) -> None:
-        """
-        Handle error
-
-        Args:
-            error (Exception): Occurred error
-            event (JoinEvent): Event where error occurred
-            context (Optional[Dict[str, Any]]): Context information when error occurred
-        """
-        try:
-            self.logger.error(
-                f"Join handler error: {type(error).__name__} - {str(error)}",
-                exc_info=True,
-            )
-        except Exception:
-            # 絶対に例外を投げてはいけません
-            pass
+        )
