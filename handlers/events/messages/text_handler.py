@@ -11,6 +11,13 @@ from linebot.v3.messaging import (
     UserMentionTarget,
     TextMessageV2,
     ShowLoadingAnimationRequest,
+    FlexMessage,
+    FlexBubble,
+    FlexBox,
+    FlexText,
+    FlexButton,
+    PostbackAction,
+    FlexSeparator,
 )
 from linebot.v3.webhooks import MessageEvent, UserSource, GroupSource, RoomSource
 
@@ -50,7 +57,8 @@ class TextHandler:
                 "/ping - 疎通確認\n"
                 "/loading - ローディングアニメーション表示（個チャのみ）\n"
                 "/mention - メンション機能テスト（グループチャットのみ）\n"
-                "/allmention - 全員メンション機能テスト (グループチャットのみ・極力使わないように)"
+                "/allmention - 全員メンション機能テスト (グループチャットのみ・極力使わないように)\n"
+                "/postback - Postback機能テスト（ボタン付きメッセージ）"
             )
         elif command == "/status":
             response_text = "Bot is running normally"
@@ -76,6 +84,9 @@ class TextHandler:
             return
         elif command == "/allmention":
             await self._handle_all_mention_test(event)
+            return
+        elif command == "/postback":
+            await self._handle_postback_test(event)
             return
         else:
             response_text = (
@@ -195,6 +206,146 @@ class TextHandler:
             await self._reply_text(
                 event, "全員メンション機能のテスト中にエラーが発生しました。"
             )
+
+    async def _handle_postback_test(self, event: MessageEvent) -> None:
+        """Postback機能のテスト用ボタンメッセージを送信"""
+        try:
+            # Flexメッセージでボタン付きメニューを作成
+            flex_message = self._create_postback_flex_message()
+
+            await self.api.reply_message(
+                ReplyMessageRequest(
+                    reply_token=event.reply_token,
+                    messages=[flex_message],
+                )
+            )
+
+        except Exception as e:
+            logger.error(f"Postback test error: {e}")
+            await self._reply_text(
+                event, "Postback機能のテスト中にエラーが発生しました。"
+            )
+
+    def _create_postback_flex_message(self) -> FlexMessage:
+        """Postbackテスト用のFlexメッセージを作成"""
+        # ヘッダー部分
+        header_box = FlexBox(
+            layout="vertical",
+            contents=[
+                FlexText(
+                    text="Postback テスト",
+                    weight="bold",
+                    size="xl",
+                    color="#ffffff"
+                ),
+                FlexText(
+                    text="ボタンを押してPostback機能をテスト",
+                    size="md",
+                    color="#ffffff",
+                    wrap=True,
+                ),
+            ],
+            background_color="#007BFF",
+            padding_all="20px",
+            spacing="md",
+        )
+
+        # 説明部分
+        description_box = FlexBox(
+            layout="vertical",
+            contents=[
+                FlexText(
+                    text="各ボタンを押すと、それぞれ異なるデータがPostbackとして送信されます:",
+                    size="sm",
+                    wrap=True,
+                    color="#666666",
+                    margin="sm",
+                ),
+            ],
+            padding_all="20px",
+        )
+
+        # ボタン部分
+        buttons_box = FlexBox(
+            layout="vertical",
+            contents=[
+                # 基本的なボタン
+                FlexButton(
+                    action=PostbackAction(
+                        label="基本テスト",
+                        data="action=basic_test&type=simple",
+                        display_text="基本テストを実行しました"
+                    ),
+                    style="primary",
+                    color="#28A745",
+                ),
+                # パラメータ付きボタン
+                FlexButton(
+                    action=PostbackAction(
+                        label="パラメータテスト",
+                        data="action=param_test&user=sample&value=123",
+                        display_text="パラメータテストを実行しました"
+                    ),
+                    style="secondary",
+                    margin="md",
+                ),
+                # JSON形式のデータボタン
+                FlexButton(
+                    action=PostbackAction(
+                        label="JSON データテスト",
+                        data='{"action":"json_test","data":{"id":999,"name":"test_user","timestamp":"2024-01-01"}}',
+                        display_text="JSON データテストを実行しました"
+                    ),
+                    style="primary",
+                    color="#FFC107",
+                    margin="md",
+                ),
+                # 隠しデータボタン（表示テキストなし）
+                FlexButton(
+                    action=PostbackAction(
+                        label="サイレントテスト",
+                        data="action=silent_test&notification=false"
+                        # display_textを設定しないとサイレント送信
+                    ),
+                    style="secondary",
+                    margin="md",
+                ),
+            ],
+            spacing="sm",
+            padding_all="20px",
+        )
+
+        # 注意事項
+        footer_box = FlexBox(
+            layout="vertical",
+            contents=[
+                FlexSeparator(),
+                FlexText(
+                    text="💡 ボタンを押すとPostbackイベントが発生し、サーバー側で処理されます",
+                    size="xs",
+                    color="#999999",
+                    wrap=True,
+                    margin="md",
+                ),
+            ],
+            padding_all="16px",
+        )
+
+        # 全体をまとめてバブルを作成
+        bubble = FlexBubble(
+            hero=header_box,
+            body=FlexBox(
+                layout="vertical",
+                contents=[description_box, buttons_box],
+                spacing="none",
+            ),
+            footer=footer_box,
+        )
+
+        return FlexMessage(
+            alt_text="Postback機能テスト - ボタンを押してください",
+            contents=bubble
+        )
 
     async def _handle_regular_text(self, event: MessageEvent, text: str) -> None:
         """通常のテキストメッセージ処理（エコー機能）"""
